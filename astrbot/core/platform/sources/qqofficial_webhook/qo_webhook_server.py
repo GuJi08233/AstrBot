@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import json
 import logging
 import time
@@ -28,15 +29,23 @@ def _build_ed25519_seed(secret: str) -> bytes:
     if not secret:
         raise ValueError("QQ official bot secret is empty.")
 
-    seed = secret.encode("utf-8")
+    seed = secret
     while len(seed) < _ED25519_SEED_SIZE:
         seed *= 2
-    return seed[:_ED25519_SEED_SIZE]
+    return seed[:_ED25519_SEED_SIZE].encode("utf-8")
+
+
+def _build_ed25519_private_key(secret: str) -> ed25519.Ed25519PrivateKey:
+    """从 secret 生成 Ed25519 私钥，与 QQ 官方 Go SDK 行为一致"""
+    seed = _build_ed25519_seed(secret)
+    # Go 的 ed25519.GenerateKey 会用 SHA-512 哈希种子，然后取前 32 字节作为私钥
+    hash_digest = hashlib.sha512(seed).digest()
+    private_bytes = hash_digest[:_ED25519_SEED_SIZE]
+    return ed25519.Ed25519PrivateKey.from_private_bytes(private_bytes)
 
 
 def _sign_qq_webhook_payload(secret: str, timestamp: str, payload: bytes) -> str:
-    seed = _build_ed25519_seed(secret)
-    private_key = ed25519.Ed25519PrivateKey.from_private_bytes(seed)
+    private_key = _build_ed25519_private_key(secret)
     return private_key.sign(timestamp.encode("utf-8") + payload).hex()
 
 
@@ -64,8 +73,7 @@ def _verify_qq_webhook_signature(
         return False
 
     try:
-        seed = _build_ed25519_seed(secret)
-        private_key = ed25519.Ed25519PrivateKey.from_private_bytes(seed)
+        private_key = _build_ed25519_private_key(secret)
         public_key = private_key.public_key()
         public_key.verify(signature_buffer, timestamp.encode("utf-8") + body)
     except (InvalidSignature, ValueError) as e:
@@ -148,8 +156,7 @@ class QQOfficialWebhook:
         return seed[:target_size].encode("utf-8")
 
     async def webhook_validation(self, validation_payload: dict):
-        seed = await self.repeat_seed(self.secret)
-        private_key = ed25519.Ed25519PrivateKey.from_private_bytes(seed)
+        private_key = _build_ed25519_private_key(self.secret)
         msg = validation_payload.get("event_ts", "") + validation_payload.get(
             "plain_token",
             "",
