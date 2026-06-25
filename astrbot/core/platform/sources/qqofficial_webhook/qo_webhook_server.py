@@ -47,17 +47,20 @@ def _verify_qq_webhook_signature(
     body: bytes,
 ) -> bool:
     if not timestamp or not signature:
+        logger.warning(f"签名验证失败: timestamp={timestamp}, signature={signature}")
         return False
 
     try:
         signature_buffer = bytes.fromhex(signature)
-    except (BinasciiError, ValueError):
+    except (BinasciiError, ValueError) as e:
+        logger.warning(f"签名验证失败: signature 解析错误: {e}")
         return False
 
     if (
         len(signature_buffer) != _ED25519_SIGNATURE_SIZE
         or signature_buffer[63] & 224 != 0
     ):
+        logger.warning(f"签名验证失败: signature 长度或格式错误")
         return False
 
     try:
@@ -65,7 +68,8 @@ def _verify_qq_webhook_signature(
         private_key = ed25519.Ed25519PrivateKey.from_private_bytes(seed)
         public_key = private_key.public_key()
         public_key.verify(signature_buffer, timestamp.encode("utf-8") + body)
-    except (InvalidSignature, ValueError):
+    except (InvalidSignature, ValueError) as e:
+        logger.warning(f"签名验证失败: 签名不匹配 (secret 长度={len(secret)}): {e}")
         return False
     return True
 
