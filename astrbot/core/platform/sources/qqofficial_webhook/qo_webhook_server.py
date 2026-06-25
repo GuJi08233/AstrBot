@@ -175,6 +175,8 @@ class QQOfficialWebhook:
         Returns:
             响应数据
         """
+        logger.info(f"收到 webhook 请求: {request.method} {request.path}")
+        logger.debug(f"请求头: {dict(request.headers)}")
         body = await request.get_data()
         if not _verify_qq_webhook_signature(
             self.secret,
