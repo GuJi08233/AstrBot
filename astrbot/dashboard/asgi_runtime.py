@@ -169,6 +169,13 @@ class DashboardRequest:
                 return None
             raise
 
+    async def get_data(self, as_text: bool = False):
+        """获取请求体数据，兼容 Quart API"""
+        data = await self._request.body()
+        if as_text:
+            return data.decode("utf-8")
+        return data
+
     async def _load_form_parts(self) -> None:
         if self._form_cache is not None and self._files_cache is not None:
             return
