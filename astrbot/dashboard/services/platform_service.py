@@ -53,7 +53,15 @@ class PlatformService:
                 f"平台 {platform_adapter.meta().name} 未实现 webhook_callback 方法"
             )
             raise PlatformServiceError("平台未支持统一 Webhook 模式", 500) from exc
+        except PlatformServiceError:
+            raise
         except Exception as exc:
+            # 客户端断开连接不是服务器错误，降级为警告日志
+            from starlette.requests import ClientDisconnect
+
+            if isinstance(exc, ClientDisconnect):
+                logger.warning(f"处理 webhook 回调时客户端断开连接: {exc}")
+                return {"error": "Client disconnected"}, 499
             logger.error(f"处理 webhook 回调时发生错误: {exc}", exc_info=True)
             raise PlatformServiceError("处理回调失败", 500) from exc
 
