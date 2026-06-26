@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import json
 import logging
 import time
@@ -36,9 +37,15 @@ def _build_ed25519_seed(secret: str) -> bytes:
 
 
 def _build_ed25519_private_key(secret: str) -> ed25519.Ed25519PrivateKey:
-    """从 secret 生成 Ed25519 私钥"""
+    """从 secret 生成 Ed25519 私钥，与 QQ 官方 Go SDK 行为一致
+
+    Go 的 ed25519.GenerateKey 会用 SHA-512 哈希种子，然后取前 32 字节作为私钥。
+    """
     seed = _build_ed25519_seed(secret)
-    return ed25519.Ed25519PrivateKey.from_private_bytes(seed)
+    # Go 的 ed25519.GenerateKey 会用 SHA-512 哈希种子
+    hash_digest = hashlib.sha512(seed).digest()
+    private_bytes = hash_digest[:_ED25519_SEED_SIZE]
+    return ed25519.Ed25519PrivateKey.from_private_bytes(private_bytes)
 
 
 def _sign_qq_webhook_payload(secret: str, timestamp: str, payload: bytes) -> str:
