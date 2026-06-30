@@ -2166,6 +2166,24 @@ paths:
         "200":
           $ref: "#/components/responses/Ok"
 
+  /api/v1/plugins/{plugin_id}/source:
+    post:
+      tags: [Plugins]
+      summary: Bind an installed plugin to a marketplace source
+      operationId: bindPluginSource
+      x-astrbot-scope: plugin
+      parameters:
+        - $ref: "#/components/parameters/PluginId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PluginSourceBindRequest"
+      responses:
+        "200":
+          $ref: "#/components/responses/Ok"
+
   /api/v1/plugins/{plugin_id}/enabled:
     patch:
       tags: [Plugins]
@@ -2230,6 +2248,22 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/PluginVersionSupportRequest"
+      responses:
+        "200":
+          $ref: "#/components/responses/Ok"
+
+  /api/v1/plugins/validate/repo:
+    post:
+      tags: [Plugins]
+      summary: Validate a GitHub plugin repository before installation
+      operationId: validatePluginRepo
+      x-astrbot-scope: plugin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PluginValidateRepoRequest"
       responses:
         "200":
           $ref: "#/components/responses/Ok"
@@ -3412,6 +3446,12 @@ paths:
         - $ref: "#/components/parameters/KbId"
         - $ref: "#/components/parameters/Page"
         - $ref: "#/components/parameters/PageSize"
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter documents by name (case-insensitive partial match).
       responses:
         "200":
           $ref: "#/components/responses/Ok"
@@ -5444,6 +5484,18 @@ components:
           default: false
       additionalProperties: false
 
+    PluginSourceBindRequest:
+      type: object
+      properties:
+        install_method:
+          type: string
+        registry_url:
+          type: string
+          nullable: true
+        market_plugin_id:
+          type: string
+      additionalProperties: false
+
     PluginBatchUpdateRequest:
       type: object
       properties:
@@ -5485,6 +5537,13 @@ components:
           type: string
         ignore_version_check:
           type: boolean
+        install_method:
+          type: string
+        registry_url:
+          type: string
+          nullable: true
+        market_plugin_id:
+          type: string
       additionalProperties: false
 
     PluginUrlInstallRequest:
@@ -5502,6 +5561,24 @@ components:
           type: string
         ignore_version_check:
           type: boolean
+        install_method:
+          type: string
+        registry_url:
+          type: string
+          nullable: true
+        market_plugin_id:
+          type: string
+      additionalProperties: false
+
+    PluginValidateRepoRequest:
+      type: object
+      properties:
+        repository:
+          type: string
+        url:
+          type: string
+        proxy:
+          type: string
       additionalProperties: false
 
     PluginUploadInstallRequest:

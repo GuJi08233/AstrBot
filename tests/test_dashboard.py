@@ -2300,6 +2300,10 @@ async def test_plugins(
         installed_at = target["installed_at"]
         assert installed_at is not None
         datetime.fromisoformat(installed_at)
+        assert target["install_source"]["install_method"] == "github"
+        assert target["install_source"]["repo"] == test_repo_url
+        assert target["updates_enabled"] is True
+        assert target["update_disabled_reason"] == ""
 
         response = await test_client.get(
             f"/api/plugin/detail?name={test_plugin_name}",
@@ -2316,7 +2320,7 @@ async def test_plugins(
         exists = any(md.name == test_plugin_name for md in star_registry)
         assert exists is True, f"插件 {test_plugin_name} 未成功载入"
 
-        # 插件更新
+        # Git URL installs can be explicitly reinstalled from their repository.
         response = await test_client.post(
             "/api/plugin/update",
             json={"name": test_plugin_name},
@@ -2326,9 +2330,8 @@ async def test_plugins(
         data = await response.get_json()
         assert data["status"] == "ok"
 
-        # 验证更新标记文件
         plugin_dir = builder.get_plugin_path(test_plugin_name)
-        assert (plugin_dir / ".updated").exists()
+        assert (plugin_dir / ".updated").read_text(encoding="utf-8") == "ok"
 
         # 插件卸载
         response = await test_client.post(
