@@ -35,8 +35,10 @@ class FakeClient:
         self.closed = False
         self.requests = []
 
-    def post(self, url: str, json: dict) -> FakeResponse:
-        self.requests.append((url, json))
+    def post(
+        self, url: str, json: dict, proxy: str | None = None
+    ) -> FakeResponse:
+        self.requests.append((url, json, proxy))
         return self.response
 
     async def close(self) -> None:
@@ -49,6 +51,7 @@ def provider() -> VLLMRerankProvider:
     instance.base_url = "https://rerank.example.test"
     instance.api_suffix = "/v1/rerank"
     instance.model = "test-model"
+    instance.proxy = "http://proxy.example.test:7890"
     instance.client = None
     return instance
 
@@ -81,6 +84,7 @@ async def test_vllm_rerank_maps_successful_response(provider):
                 "model": "test-model",
                 "top_n": 2,
             },
+            "http://proxy.example.test:7890",
         )
     ]
 
