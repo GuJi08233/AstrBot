@@ -1,0 +1,15 @@
+services:
+  astrbot:
+    image: ghcr.io/guji08233/astrbot:guji-latest
+    container_name: astrbot
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "6185:6185"
+      - "6199:6199"
+    environment:
+      - TZ=Asia/Shanghai
+    volumes:
+      - ./data:/AstrBot/data
+      - /etc/localtime:/etc/localtime:ro
