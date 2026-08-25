@@ -67,7 +67,7 @@ def test_mimo_tts_assistant_content_prefixes_style_and_dialect():
             "role": "user",
             "content": "You are chatting with a close friend.",
         }
-        assert payload["messages"][1]["content"] == "<style>开心 四川话</style>hello"
+        assert payload["messages"][1]["content"] == "(开心 四川话)hello"
     finally:
         asyncio.run(provider.terminate())
 
@@ -84,7 +84,7 @@ def test_mimo_tts_payload_omits_user_message_without_seed_text():
         assert payload["messages"] == [
             {
                 "role": "assistant",
-                "content": "<style>开心</style>hello",
+                "content": "(开心)hello",
             }
         ]
     finally:
@@ -100,7 +100,61 @@ def test_mimo_tts_singing_style_uses_single_style_tag():
     )
     try:
         payload = provider._build_payload("歌词")
-        assert payload["messages"][1]["content"] == "<style>唱歌</style>歌词"
+        assert payload["messages"][1]["content"] == "(唱歌)歌词"
+    finally:
+        asyncio.run(provider.terminate())
+
+
+def test_mimo_tts_english_sing_keyword_maps_to_singing_tag():
+    provider = _make_tts_provider({"mimo-tts-style-prompt": "singing"})
+    try:
+        payload = provider._build_payload("lyrics")
+        assert payload["messages"][-1]["content"] == "(唱歌)lyrics"
+    finally:
+        asyncio.run(provider.terminate())
+
+
+def test_mimo_tts_voiceclone_uses_reference_audio_data_url(tmp_path):
+    sample = tmp_path / "voice.wav"
+    sample.write_bytes(b"RIFF0000WAVEfmt ")
+    provider = _make_tts_provider(
+        {
+            "model": "mimo-v2.5-tts-voiceclone",
+            "mimo-tts-voice-clone-audio": str(sample),
+        }
+    )
+    try:
+        payload = provider._build_payload("hello")
+        voice = payload["audio"]["voice"]
+        expected = base64.b64encode(sample.read_bytes()).decode()
+        assert voice == f"data:audio/wav;base64,{expected}"
+        # Cached on second build.
+        assert provider._build_payload("again")["audio"]["voice"] == voice
+    finally:
+        asyncio.run(provider.terminate())
+
+
+def test_mimo_tts_voiceclone_requires_reference_audio():
+    provider = _make_tts_provider({"model": "mimo-v2.5-tts-voiceclone"})
+    try:
+        with pytest.raises(MiMoAPIError, match="参考音频文件路径"):
+            provider._build_payload("hello")
+    finally:
+        asyncio.run(provider.terminate())
+
+
+def test_mimo_tts_voiceclone_rejects_unsupported_format(tmp_path):
+    sample = tmp_path / "voice.ogg"
+    sample.write_bytes(b"OggS")
+    provider = _make_tts_provider(
+        {
+            "model": "mimo-v2.5-tts-voiceclone",
+            "mimo-tts-voice-clone-audio": str(sample),
+        }
+    )
+    try:
+        with pytest.raises(MiMoAPIError, match="仅支持 mp3 和 wav"):
+            provider._build_payload("hello")
     finally:
         asyncio.run(provider.terminate())
 
@@ -133,7 +187,7 @@ def test_mimo_tts_seed_text_is_not_prepended_to_assistant_content():
     try:
         payload = provider._build_payload("明天就是周五了")
         assert payload["messages"][0]["content"] == "reference text"
-        assert payload["messages"][1]["content"] == "<style>开心</style>明天就是周五了"
+        assert payload["messages"][1]["content"] == "(开心)明天就是周五了"
         assert "reference text" not in payload["messages"][1]["content"]
     finally:
         asyncio.run(provider.terminate())

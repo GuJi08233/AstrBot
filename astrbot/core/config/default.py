@@ -1693,6 +1693,7 @@ CONFIG_METADATA_2 = {
                         "mimo-tts-style-prompt": "",
                         "mimo-tts-dialect": "",
                         "mimo-tts-seed-text": "Hello, MiMo, have you had lunch?",
+                        "mimo-tts-voice-clone-audio": "",
                         "timeout": "20",
                         "proxy": "",
                     },
@@ -2726,7 +2727,7 @@ CONFIG_METADATA_2 = {
                     "mimo-tts-voice": {
                         "description": "音色",
                         "type": "string",
-                        "hint": "MiMo TTS 的音色名称。可选值包括 'mimo_default'、'default_en'、'default_zh'。",
+                        "hint": "MiMo TTS 的预置音色，仅 mimo-v2.5-tts 模型生效。可选值：mimo_default、冰糖、茉莉、苏打、白桦（中文），Mia、Chloe、Milo、Dean（英文）。voicedesign 模型由种子文本描述音色，voiceclone 模型使用参考音频，均忽略此项。",
                     },
                     "mimo-tts-format": {
                         "description": "输出格式",
@@ -2736,17 +2737,22 @@ CONFIG_METADATA_2 = {
                     "mimo-tts-style-prompt": {
                         "description": "风格提示词",
                         "type": "string",
-                        "hint": "会以 <style>...</style> 标签形式添加到待合成文本开头，用于控制语速、情绪、角色或风格，例如 开心、变快、孙悟空、悄悄话。可留空。",
+                        "hint": "会以 (风格) 标签形式添加到待合成文本开头，用于控制情绪、语调、音色定位或角色扮演，例如 开心、温柔、磁性、御姐音、孙悟空；填 唱歌 时按官方建议只保留 (唱歌) 标签。可留空。",
                     },
                     "mimo-tts-dialect": {
                         "description": "方言",
                         "type": "string",
-                        "hint": "会与风格提示词一起写入开头的 <style>...</style> 标签中，例如 东北话、四川话、河南话、粤语。可留空。",
+                        "hint": "会与风格提示词一起写入开头的 (风格) 标签中，例如 东北话、四川话、河南话、粤语。可留空。",
                     },
                     "mimo-tts-seed-text": {
                         "description": "种子文本",
                         "type": "string",
-                        "hint": "作为可选的 user 消息发送，用于辅助调节语气和风格，不会拼接到待合成文本中。",
+                        "hint": "作为可选的 user 消息发送，用自然语言描述期望的语气和风格，不会拼接到待合成文本中。使用 voicedesign 模型时必填，内容即音色设计描述（如：一位年迈的老先生，嗓音沙哑沧桑，语速缓慢沉稳）。",
+                    },
+                    "mimo-tts-voice-clone-audio": {
+                        "description": "音色复刻参考音频",
+                        "type": "string",
+                        "hint": "仅 voiceclone 模型使用：填写参考音频的本地文件路径（mp3 或 wav，Base64 编码后不超过 10MB），将复刻该音频的音色进行合成。",
                     },
                     "fishaudio-tts-character": {
                         "description": "character",

@@ -1,4 +1,6 @@
 import base64
+import re
+from pathlib import Path
 
 from astrbot.core.utils.datetime_utils import generate_timestamp_id
 
@@ -17,6 +19,13 @@ from .mimo_api_common import (
     get_temp_dir,
     normalize_timeout,
 )
+
+# Voice clone samples must be mp3/wav and stay within 10 MB after base64.
+VOICE_CLONE_MIME_TYPES = {
+    ".mp3": "audio/mpeg",
+    ".wav": "audio/wav",
+}
+VOICE_CLONE_MAX_BASE64_BYTES = 10 * 1024 * 1024
 
 
 @register_provider_adapter(
@@ -42,6 +51,8 @@ class ProviderMiMoTTSAPI(TTSProvider):
         self.seed_text = provider_config.get(
             "mimo-tts-seed-text", DEFAULT_MIMO_TTS_SEED_TEXT
         )
+        self.voice_clone_audio = provider_config.get("mimo-tts-voice-clone-audio", "")
+        self._voice_clone_data_url: str | None = None
         self.set_model(provider_config.get("model", DEFAULT_MIMO_TTS_MODEL))
         self.client = create_http_client(self.timeout, self.proxy)
 
@@ -61,14 +72,60 @@ class ProviderMiMoTTSAPI(TTSProvider):
         if not style_content:
             return ""
 
-        # MiMo recommends using only the singing style tag at the very beginning.
-        if "唱歌" in style_content:
-            return "<style>唱歌</style>"
+        # MiMo V2.5 uses a leading "(style)" tag; singing must be the only tag
+        # and accepts 唱歌 / sing / singing equivalently.
+        style_words = set(re.split(r"\s+", style_content.lower()))
+        if "唱歌" in style_content or style_words & {"sing", "singing"}:
+            return "(唱歌)"
 
-        return f"<style>{style_content}</style>"
+        return f"({style_content})"
 
     def _build_assistant_content(self, text: str) -> str:
         return f"{self._build_style_prefix()}{text}"
+
+    def _is_voice_clone_model(self) -> bool:
+        return "voiceclone" in (self.model_name or "").lower()
+
+    def _is_voice_design_model(self) -> bool:
+        return "voicedesign" in (self.model_name or "").lower()
+
+    def _build_voice_clone_data_url(self) -> str:
+        if self._voice_clone_data_url is not None:
+            return self._voice_clone_data_url
+
+        audio_path_text = str(self.voice_clone_audio or "").strip()
+        if not audio_path_text:
+            raise MiMoAPIError(
+                "MiMo TTS voice clone 模型需要配置参考音频文件路径 "
+                "(mimo-tts-voice-clone-audio)"
+            )
+        audio_path = Path(audio_path_text)
+        if not audio_path.is_file():
+            raise MiMoAPIError(f"MiMo TTS 参考音频文件不存在: {audio_path}")
+        mime_type = VOICE_CLONE_MIME_TYPES.get(audio_path.suffix.lower())
+        if not mime_type:
+            raise MiMoAPIError(
+                "MiMo TTS 参考音频仅支持 mp3 和 wav 格式: " + audio_path.name
+            )
+        encoded = base64.b64encode(audio_path.read_bytes()).decode("ascii")
+        if len(encoded) > VOICE_CLONE_MAX_BASE64_BYTES:
+            raise MiMoAPIError(
+                "MiMo TTS 参考音频 Base64 编码后超过 10 MB 限制: " + audio_path.name
+            )
+        self._voice_clone_data_url = f"data:{mime_type};base64,{encoded}"
+        return self._voice_clone_data_url
+
+    def _resolve_voice(self) -> str | None:
+        """Return the audio.voice value for the current model.
+
+        Preset voices only apply to mimo-v2.5-tts; voicedesign derives the
+        voice from the user prompt, voiceclone takes a base64 audio sample.
+        """
+        if self._is_voice_design_model():
+            return None
+        if self._is_voice_clone_model():
+            return self._build_voice_clone_data_url()
+        return self.voice
 
     def _build_payload(self, text: str) -> dict:
         messages: list[dict[str, str]] = []
@@ -90,9 +147,9 @@ class ProviderMiMoTTSAPI(TTSProvider):
         )
 
         audio_params = {"format": self.audio_format}
-        # voice design 模型不支持 audio.voice 参数
-        if "voicedesign" not in self.model_name:
-            audio_params["voice"] = self.voice
+        voice = self._resolve_voice()
+        if voice:
+            audio_params["voice"] = voice
 
         return {
             "model": self.model_name,
