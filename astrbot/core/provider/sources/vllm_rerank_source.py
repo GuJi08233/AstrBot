@@ -27,7 +27,7 @@ class VLLMRerankProvider(RerankProvider):
         self.model = provider_config.get("rerank_model", "BAAI/bge-reranker-base")
         self.proxy = provider_config.get("proxy", "") or None
 
-        h = {}
+        h = self.request_headers.copy()
         if self.auth_key:
             h["Authorization"] = f"Bearer {self.auth_key}"
         self.client = aiohttp.ClientSession(

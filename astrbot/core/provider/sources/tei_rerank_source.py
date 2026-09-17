@@ -32,7 +32,7 @@ class TEIRerankProvider(RerankProvider):
         self.return_text = provider_config.get("tei_rerank_return_text", False)
         self.proxy = provider_config.get("proxy", "") or None
 
-        h = {}
+        h = self.request_headers.copy()
         if self.api_key:
             h["Authorization"] = f"Bearer {self.api_key}"
         self.client = aiohttp.ClientSession(

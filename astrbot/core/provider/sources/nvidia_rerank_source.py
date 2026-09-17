@@ -38,7 +38,8 @@ class NvidiaRerankProvider(RerankProvider):
                 "Accept": "application/json",
             }
             self.client = aiohttp.ClientSession(
-                headers=headers, timeout=aiohttp.ClientTimeout(total=self.timeout)
+                headers={**self.request_headers, **headers},
+                timeout=aiohttp.ClientTimeout(total=self.timeout),
             )
         return self.client
 
