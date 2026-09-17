@@ -47,6 +47,20 @@ class ProviderStepFunASR(STTProvider):
         self.proxy = provider_config.get("proxy", "") or None
         self.set_model(provider_config.get("model") or DEFAULT_STEPFUN_ASR_MODEL)
 
+    def _build_headers(self) -> dict[str, str]:
+        """Merge the AstrBot/custom headers with the SSE protocol essentials.
+
+        Protocol headers come last: a custom ``Accept`` or ``Content-Type``
+        would break the SSE exchange, while ``User-Agent`` and any other
+        custom header still pass through.
+        """
+        return {
+            **self.request_headers,
+            "Content-Type": "application/json",
+            "Accept": "text/event-stream",
+            "Authorization": f"Bearer {self.chosen_api_key}",
+        }
+
     def _build_payload(self, audio_b64: str) -> dict:
         transcription: dict = {
             "model": self.model_name,
@@ -73,11 +87,7 @@ class ProviderStepFunASR(STTProvider):
             audio_b64 = base64.b64encode(audio.read_bytes()).decode("ascii")
 
         url = f"{self.api_base}/audio/asr/sse"
-        headers = {
-            "Content-Type": "application/json",
-            "Accept": "text/event-stream",
-            "Authorization": f"Bearer {self.chosen_api_key}",
-        }
+        headers = self._build_headers()
         timeout = aiohttp.ClientTimeout(total=self.timeout)
         async with aiohttp.ClientSession(
             timeout=timeout, read_bufsize=SSE_READ_BUFSIZE

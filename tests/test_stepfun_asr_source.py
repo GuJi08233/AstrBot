@@ -2,6 +2,7 @@ import json
 
 import pytest
 
+from astrbot.core.provider.headers import DEFAULT_USER_AGENT
 from astrbot.core.provider.sources.stepfun_asr_source import ProviderStepFunASR
 
 
@@ -36,6 +37,31 @@ def test_defaults_target_step_plan_endpoint():
 def test_open_platform_base_url_is_normalized():
     provider = _make_provider({"api_base": "https://api.stepfun.com/v1/"})
     assert provider.api_base == "https://api.stepfun.com/v1"
+
+
+def test_headers_carry_astrbot_user_agent():
+    provider = _make_provider()
+    headers = provider._build_headers()
+    assert headers["User-Agent"] == DEFAULT_USER_AGENT
+    assert headers["Content-Type"] == "application/json"
+    assert headers["Accept"] == "text/event-stream"
+    assert headers["Authorization"] == "Bearer test-key"
+
+
+def test_custom_headers_apply_without_breaking_the_sse_protocol():
+    provider = _make_provider(
+        {
+            "custom_headers": {
+                "User-Agent": "custom/1.0",
+                "X-Trace-Id": "abc",
+                "Accept": "application/json",
+            }
+        }
+    )
+    headers = provider._build_headers()
+    assert headers["User-Agent"] == "custom/1.0"
+    assert headers["X-Trace-Id"] == "abc"
+    assert headers["Accept"] == "text/event-stream"
 
 
 def test_payload_carries_transcription_and_wav_format():
