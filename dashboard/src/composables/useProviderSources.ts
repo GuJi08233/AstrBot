@@ -437,6 +437,18 @@ export function useProviderSources(options: UseProviderSourcesOptions) {
       source.ollama_disable_thinking = false
     }
 
+    // Sources created before force_stream existed lack the key, so the toggle
+    // would not render for them.
+    const forceStreamTypes = [
+      'openai_chat_completion',
+      'openai_responses',
+      'googlegenai_chat_completion',
+      'anthropic_chat_completion'
+    ]
+    if (forceStreamTypes.includes(source.type) && source.force_stream === undefined) {
+      source.force_stream = false
+    }
+
     return source
   }
 

@@ -1327,6 +1327,7 @@ CONFIG_METADATA_2 = {
                         "api_base": "https://api.openai.com/v1",
                         "timeout": 120,
                         "proxy": "",
+                        "force_stream": False,
                         "custom_headers": {},
                     },
                     "OpenAI Responses": {
@@ -1339,6 +1340,7 @@ CONFIG_METADATA_2 = {
                         "api_base": "https://api.openai.com/v1",
                         "timeout": 120,
                         "proxy": "",
+                        "force_stream": False,
                         "custom_headers": {},
                     },
                     "Google Gemini": {
@@ -1362,6 +1364,7 @@ CONFIG_METADATA_2 = {
                         },
                         "gm_thinking_config": {"budget": 0, "level": "HIGH"},
                         "proxy": "",
+                        "force_stream": False,
                     },
                     "Anthropic": {
                         "id": "anthropic",
@@ -1373,6 +1376,7 @@ CONFIG_METADATA_2 = {
                         "api_base": "https://api.anthropic.com",
                         "timeout": 120,
                         "proxy": "",
+                        "force_stream": False,
                         "custom_headers": {},
                         "anth_thinking_config": {"type": "", "budget": 0, "effort": ""},
                     },
@@ -2931,6 +2935,11 @@ CONFIG_METADATA_2 = {
                         "description": "provider_group.provider.proxy.description",
                         "type": "string",
                         "hint": "provider_group.provider.proxy.hint",
+                    },
+                    "force_stream": {
+                        "description": "强制流式请求",
+                        "type": "bool",
+                        "hint": "开启后，原本以非流式发送的请求（如非流式对话、图片转述、上下文压缩、测试模型）也会改用流式请求，收到完整结果后再返回。用于只接受流式请求的中转或上游。Gemini 的图片输出在流式请求下不可用。",
                     },
                     "model": {
                         "description": "模型 ID",

@@ -6,6 +6,7 @@ from typing import Literal, TypeAlias, Union
 
 from astrbot.core.agent.message import ContentPart, Message, is_checkpoint_message
 from astrbot.core.agent.tool import ToolSet
+from astrbot.core.exceptions import EmptyModelOutputError
 from astrbot.core.provider.entities import (
     LLMResponse,
     ProviderMeta,
@@ -174,6 +175,36 @@ class Provider(AbstractProvider):
         if False:  # pragma: no cover - make this an async generator for typing
             yield None  # type: ignore
         raise NotImplementedError()
+
+    async def _collect_stream_response(
+        self,
+        stream: AsyncGenerator[LLMResponse, None],
+    ) -> LLMResponse:
+        """Consume a streaming request and return its complete final response.
+
+        Providers call this from their non-streaming ``_query`` when the
+        ``force_stream`` option is enabled, so that upstreams which only accept
+        streaming requests can still serve non-streaming calls.
+
+        Args:
+            stream: A ``_query_stream`` generator that yields chunks followed by
+                one complete response.
+
+        Returns:
+            The complete (non-chunk) response of the stream.
+
+        Raises:
+            EmptyModelOutputError: If the stream ends without a complete response.
+        """
+        final_response = None
+        async for response in stream:
+            if not response.is_chunk:
+                final_response = response
+        if final_response is None:
+            raise EmptyModelOutputError(
+                "Streaming request ended without a complete response."
+            )
+        return final_response
 
     async def pop_record(self, context: list) -> None:
         """弹出 context 第一条非系统提示词对话记录"""

@@ -8,7 +8,7 @@ from collections.abc import AsyncGenerator
 from typing import Any, Literal
 
 import httpx
-from openai import AsyncAzureOpenAI, AsyncOpenAI
+from openai import AsyncAzureOpenAI, AsyncOpenAI, LengthFinishReasonError
 from openai._exceptions import NotFoundError
 from openai.lib.streaming.chat._completions import ChatCompletionStreamState
 from openai.types.chat.chat_completion import ChatCompletion
@@ -537,6 +537,16 @@ class ProviderOpenAIOfficial(Provider):
         request_max_retries: int | None = None,
         conversation_id: str | None = None,
     ) -> LLMResponse:
+        if self.provider_config.get("force_stream", False):
+            return await self._collect_stream_response(
+                self._query_stream(
+                    payloads,
+                    tools,
+                    request_max_retries=request_max_retries,
+                    conversation_id=conversation_id,
+                )
+            )
+
         if tools:
             model = payloads.get("model", "").lower()
             omit_empty_param_field = "gemini" in model
@@ -694,7 +704,13 @@ class ProviderOpenAIOfficial(Provider):
                 yield llm_response
 
         try:
-            final_completion = state.get_final_completion()
+            try:
+                final_completion = state.get_final_completion()
+            except LengthFinishReasonError:
+                # The SDK refuses to parse a completion cut off by the length
+                # limit. Parse the accumulated snapshot instead so the truncated
+                # reply is kept, the same as on the non-streaming path.
+                final_completion = state.current_completion_snapshot
             llm_response = await self._parse_openai_completion(final_completion, tools)
             yield llm_response
         except Exception as e:

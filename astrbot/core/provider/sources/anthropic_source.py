@@ -517,6 +517,16 @@ class ProviderAnthropic(Provider):
         request_max_retries: int | None = None,
         conversation_id: str | None = None,
     ) -> LLMResponse:
+        if self.provider_config.get("force_stream", False):
+            return await self._collect_stream_response(
+                self._query_stream(
+                    payloads,
+                    tools,
+                    request_max_retries=request_max_retries,
+                    conversation_id=conversation_id,
+                )
+            )
+
         if tools:
             if tool_list := tools.get_func_desc_anthropic_style():
                 payloads["tools"] = tool_list

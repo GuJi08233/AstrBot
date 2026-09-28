@@ -386,6 +386,44 @@ async def test_query_stream_yields_semantic_deltas_and_final_response(monkeypatc
 
 
 @pytest.mark.asyncio
+async def test_query_sends_streaming_request_when_force_stream_enabled(monkeypatch):
+    provider = _make_provider({"force_stream": True})
+    final_response = _make_response(
+        [
+            {
+                "type": "message",
+                "id": "msg_1",
+                "status": "completed",
+                "role": "assistant",
+                "content": [
+                    {"type": "output_text", "text": "hello", "annotations": []},
+                ],
+            }
+        ]
+    )
+    captured: dict = {}
+
+    async def fake_stream():
+        yield SimpleNamespace(type="response.output_text.delta", delta="hello")
+        yield SimpleNamespace(type="response.completed", response=final_response)
+
+    async def fake_create(**kwargs):
+        captured.update(kwargs)
+        return fake_stream()
+
+    monkeypatch.setattr(provider.client.responses, "create", fake_create)
+
+    response = await provider._query(
+        {"model": "gpt-test", "input": "hi", "store": False},
+        tools=None,
+    )
+
+    assert captured["stream"] is True
+    assert response.is_chunk is False
+    assert response.completion_text == "hello"
+
+
+@pytest.mark.asyncio
 async def test_parse_failed_response_raises_provider_error():
     provider = _make_provider()
     response = _make_response(

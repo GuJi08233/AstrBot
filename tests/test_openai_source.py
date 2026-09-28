@@ -1652,6 +1652,123 @@ async def test_query_stream_extracts_usage_from_empty_choices_chunk(monkeypatch)
         await provider.terminate()
 
 
+@pytest.mark.asyncio
+async def test_query_stream_keeps_reply_truncated_by_length_limit(monkeypatch):
+    provider = _make_provider()
+    try:
+        parts = ["Hel", "lo ", "wor", "ld"]
+        chunks = [
+            ChatCompletionChunk.model_validate(
+                {
+                    "id": "chatcmpl-stream",
+                    "object": "chat.completion.chunk",
+                    "created": 0,
+                    "model": "gpt-4o-mini",
+                    "choices": [
+                        {
+                            "index": 0,
+                            "delta": (
+                                {"role": "assistant", "content": part}
+                                if index == 0
+                                else {"content": part}
+                            ),
+                            "finish_reason": (
+                                "length" if index == len(parts) - 1 else None
+                            ),
+                        }
+                    ],
+                }
+            )
+            for index, part in enumerate(parts)
+        ]
+
+        async def fake_stream():
+            for chunk in chunks:
+                yield chunk
+
+        async def fake_create(**kwargs):
+            return fake_stream()
+
+        monkeypatch.setattr(provider.client.chat.completions, "create", fake_create)
+
+        responses = [
+            response
+            async for response in provider._query_stream(
+                payloads={
+                    "model": "gpt-4o-mini",
+                    "messages": [{"role": "user", "content": "hello"}],
+                },
+                tools=None,
+            )
+        ]
+
+        # The SDK refuses to parse a length-truncated completion; the stream
+        # must still end with the complete truncated reply.
+        assert responses[-1].is_chunk is False
+        assert responses[-1].completion_text == "Hello world"
+    finally:
+        await provider.terminate()
+
+
+@pytest.mark.asyncio
+async def test_text_chat_sends_streaming_request_when_force_stream_enabled(
+    monkeypatch,
+):
+    provider = _make_provider({"force_stream": True})
+    try:
+        captured = {}
+        chunks = [
+            ChatCompletionChunk.model_validate(
+                {
+                    "id": "chatcmpl-stream",
+                    "object": "chat.completion.chunk",
+                    "created": 0,
+                    "model": "gpt-4o-mini",
+                    "choices": [
+                        {
+                            "index": 0,
+                            "delta": {"role": "assistant", "content": "Hel"},
+                            "finish_reason": None,
+                        }
+                    ],
+                }
+            ),
+            ChatCompletionChunk.model_validate(
+                {
+                    "id": "chatcmpl-stream",
+                    "object": "chat.completion.chunk",
+                    "created": 0,
+                    "model": "gpt-4o-mini",
+                    "choices": [
+                        {
+                            "index": 0,
+                            "delta": {"content": "lo"},
+                            "finish_reason": "stop",
+                        }
+                    ],
+                }
+            ),
+        ]
+
+        async def fake_stream():
+            for chunk in chunks:
+                yield chunk
+
+        async def fake_create(**kwargs):
+            captured.update(kwargs)
+            return fake_stream()
+
+        monkeypatch.setattr(provider.client.chat.completions, "create", fake_create)
+
+        response = await provider.text_chat(prompt="hello")
+
+        assert captured["stream"] is True
+        assert response.is_chunk is False
+        assert response.completion_text == "Hello"
+    finally:
+        await provider.terminate()
+
+
 def test_sanitize_assistant_messages_removes_orphaned_tool_messages():
     payloads = {
         "messages": [

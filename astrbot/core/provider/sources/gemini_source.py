@@ -646,6 +646,16 @@ class ProviderGoogleGenAI(Provider):
         conversation_id: str | None = None,
     ) -> LLMResponse:
         """非流式请求 Gemini API"""
+        if self.provider_config.get("force_stream", False):
+            return await self._collect_stream_response(
+                self._query_stream(
+                    payloads,
+                    tools,
+                    request_max_retries=request_max_retries,
+                    conversation_id=conversation_id,
+                )
+            )
+
         system_instruction = next(
             (msg["content"] for msg in payloads["messages"] if msg["role"] == "system"),
             None,

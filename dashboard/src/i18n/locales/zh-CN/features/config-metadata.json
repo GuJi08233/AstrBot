@@ -1900,6 +1900,10 @@
         "description": "代理地址",
         "hint": "HTTP/HTTPS 代理地址，格式如 http://127.0.0.1:7890。仅对该提供商的 API 请求生效，不影响 Docker 内网通信。"
       },
+      "force_stream": {
+        "description": "强制流式请求",
+        "hint": "开启后，原本以非流式发送的请求（如非流式对话、图片转述、上下文压缩、测试模型）也会改用流式请求，收到完整结果后再返回。用于只接受流式请求的中转或上游。Gemini 的图片输出在流式请求下不可用。"
+      },
       "model": {
         "description": "模型 ID",
         "hint": "模型名称，如 gpt-4o-mini, deepseek-chat。"

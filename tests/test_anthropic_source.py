@@ -1,6 +1,7 @@
+import pytest
 from anthropic.types import MessageDeltaUsage, Usage
 
-from astrbot.core.provider.entities import TokenUsage
+from astrbot.core.provider.entities import LLMResponse, TokenUsage
 from astrbot.core.provider.sources.anthropic_source import ProviderAnthropic
 
 
@@ -75,3 +76,34 @@ def test_anthropic_update_usage_omitted_fields_are_preserved():
     assert token_usage.input_other == 5
     assert token_usage.input_cached == 0
     assert token_usage.output == 7
+
+
+@pytest.mark.asyncio
+async def test_anthropic_query_uses_stream_when_force_stream_enabled():
+    provider = _provider()
+    provider.provider_config = {"force_stream": True}
+    captured = {}
+
+    async def fake_query_stream(
+        payloads, tools, *, request_max_retries=None, conversation_id=None
+    ):
+        captured["request_max_retries"] = request_max_retries
+        captured["conversation_id"] = conversation_id
+        yield LLMResponse("assistant", completion_text="Hel", is_chunk=True)
+        yield LLMResponse("assistant", completion_text="Hello")
+
+    provider._query_stream = fake_query_stream
+
+    response = await provider._query(
+        {"model": "claude-test", "messages": []},
+        None,
+        request_max_retries=2,
+        conversation_id="conversation-1",
+    )
+
+    assert response.is_chunk is False
+    assert response.completion_text == "Hello"
+    assert captured == {
+        "request_max_retries": 2,
+        "conversation_id": "conversation-1",
+    }

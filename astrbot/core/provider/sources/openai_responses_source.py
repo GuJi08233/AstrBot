@@ -305,6 +305,9 @@ class ProviderOpenAIResponses(ProviderOpenAIOfficial):
     ) -> LLMResponse:
         """Send a non-streaming Responses API request.
 
+        When ``force_stream`` is enabled, the request is sent over the
+        streaming API instead and its complete final response is returned.
+
         Args:
             payloads: Prepared Responses API payload.
             tools: Functions available to the model.
@@ -316,6 +319,16 @@ class ProviderOpenAIResponses(ProviderOpenAIOfficial):
         Raises:
             TypeError: If the SDK returns an unexpected response type.
         """
+        if self.provider_config.get("force_stream", False):
+            return await self._collect_stream_response(
+                self._query_stream(
+                    payloads,
+                    tools,
+                    request_max_retries=request_max_retries,
+                    conversation_id=conversation_id,
+                )
+            )
+
         if tools:
             response_tools = []
             for tool in tools.openai_schema():

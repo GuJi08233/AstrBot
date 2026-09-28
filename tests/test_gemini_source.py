@@ -407,3 +407,48 @@ async def test_gemini_stream_keeps_reasoning_from_tool_call_chunk(monkeypatch):
 
     final = responses[-1]
     assert final.reasoning_content == "weighing optionsdeciding to call"
+
+
+@pytest.mark.asyncio
+async def test_gemini_query_sends_streaming_request_when_force_stream_enabled(
+    monkeypatch,
+):
+    provider = _gemini_stream_provider()
+    provider.provider_config = {"force_stream": True}
+    chunks = [
+        _gemini_stream_chunk(text="Hel"),
+        _gemini_stream_chunk(text="lo", finish_reason="STOP"),
+    ]
+
+    async def fake_stream():
+        for chunk in chunks:
+            yield chunk
+
+    async def generate_content(**kwargs):
+        raise AssertionError("force_stream must not send a non-streaming request")
+
+    async def generate_content_stream(**kwargs):
+        return fake_stream()
+
+    provider.client = SimpleNamespace(
+        models=SimpleNamespace(
+            generate_content=generate_content,
+            generate_content_stream=generate_content_stream,
+        )
+    )
+
+    async def fake_retry(provider_name, request_factory, max_attempts=None):
+        return await request_factory()
+
+    monkeypatch.setattr(gemini_source, "retry_provider_request", fake_retry)
+
+    response = await provider._query(
+        payloads={
+            "messages": [{"role": "user", "content": "hi"}],
+            "model": "gemini-3.7-flash",
+        },
+        tools=None,
+    )
+
+    assert response.is_chunk is False
+    assert response.completion_text == "Hello"

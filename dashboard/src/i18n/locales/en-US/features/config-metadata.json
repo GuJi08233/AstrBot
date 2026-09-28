@@ -1879,6 +1879,10 @@
         "description": "Proxy address",
         "hint": "HTTP/HTTPS proxy URL, e.g. http://127.0.0.1:7890. Applies only to this provider's API requests and does not affect Docker internal networking."
       },
+      "force_stream": {
+        "description": "Force streaming requests",
+        "hint": "When enabled, requests that are normally sent without streaming (non-streaming chat, image captioning, context compression, Test model, etc.) are sent as streaming requests and return once the complete result arrives. Use this for relays or upstreams that only accept streaming requests. Gemini image output is not available over streaming requests."
+      },
       "model": {
         "description": "Model ID",
         "hint": "Model name, e.g., gpt-4o-mini, deepseek-chat."
