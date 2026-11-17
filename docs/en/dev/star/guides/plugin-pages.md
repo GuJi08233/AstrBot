@@ -207,7 +207,9 @@ Upload example:
 ```python
 from pathlib import Path
 
-from astrbot.core.utils.astrbot_path import get_astrbot_plugin_data_path
+# Before AstrBot v4.30.0:
+# from astrbot.core.utils.astrbot_path import get_astrbot_plugin_data_path
+from astrbot.api.util import get_astrbot_plugin_data_path
 from astrbot.api.web import PluginUploadFile, error_response, json_response, request
 
 
@@ -332,7 +334,11 @@ The context usually contains:
   "pageTitle": "Bridge Demo",
   "locale": "en-US",
   "i18n": {},
-  "isDark": false
+  "isDark": false,
+  "themeColors": {
+    "primary": "#3c96ca",
+    "secondary": "#2f86bd"
+  }
 }
 ```
 
@@ -492,7 +498,7 @@ async def export_file(self):
 
 ### `subscribeSSE(endpoint, handlers, params)`
 
-Subscribes to plugin backend SSE and returns `Promise<subscriptionId>`. `handlers` may include `onOpen`, `onMessage`, and `onError`.
+Subscribes to plugin backend SSE and returns `Promise<subscriptionId>`. `handlers` may include `onOpen`, `onMessage`, `onClose`, and `onError`.
 
 ```js
 const subscriptionId = await bridge.subscribeSSE(
@@ -504,6 +510,9 @@ const subscriptionId = await bridge.subscribeSSE(
     onMessage(event) {
       console.log(event.raw, event.parsed, event.lastEventId);
     },
+    onClose() {
+      console.log("SSE stream ended");
+    },
     onError() {
       console.warn("SSE error");
     },
@@ -513,6 +522,8 @@ const subscriptionId = await bridge.subscribeSSE(
 ```
 
 `event.raw` is the raw string. If the message is a JSON string, `event.parsed` is parsed automatically; otherwise it equals the raw string. `event.eventType` matches the SSE `event:` field and defaults to `message`.
+
+`onClose` is called when the stream ends, and `onError` is called if reading it fails. Calling `unsubscribeSSE` triggers neither callback. The bridge does not reconnect automatically; subscribe again if needed. Initial subscription failures reject the returned promise.
 
 The backend must return `text/event-stream`:
 
@@ -625,6 +636,25 @@ body {
 ```
 
 The server injects `data-theme` into returned HTML to reduce initial flashing. If JavaScript needs to react to theme changes, read `bridge.getContext()?.isDark` and listen with `onContext()`.
+
+### Following user-selected colors
+
+Subscribe with `bridge.onContext()` to apply the initial `primary` and `secondary` CSS colors and receive updates. Use defaults when `themeColors` is absent:
+
+```js
+const bridge = window.AstrBotPluginView;
+
+await bridge.ready();
+const off = bridge.onContext((context) => {
+  const style = document.documentElement.style;
+  style.setProperty("--primary", context.themeColors?.primary ?? "#3c96ca");
+  style.setProperty("--secondary", context.themeColors?.secondary ?? "#2f86bd");
+});
+
+// Call off() when the View is disposed.
+```
+
+Use `var(--primary)` and `var(--secondary)` in your styles.
 
 ## Static Asset Paths
 
